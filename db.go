@@ -146,9 +146,7 @@ func GetStandings() string {
 		entryScore := calculateEntryScore(tries, completed)
 
 		if val, ok := scores[userId]; ok {
-			fmt.Println("Current  score", val.Score)
 			val.Score += entryScore
-			fmt.Println("New score", val.Score)
 			scores[userId] = val
 		} else {
 			newScore := Score{User: globalName, Score: entryScore}
@@ -179,4 +177,100 @@ func GetStandings() string {
 	}
 
 	return scoreStr
+}
+
+func GetStats(userId string) string {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	stmt, err := db.Prepare("select * from angle_tries where user_id = ? order by angle_issue desc")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(userId)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	type Entry struct {
+		Tries     int
+		Issue     int
+		Completed int
+	}
+
+	entries := []Entry{}
+
+	for rows.Next() {
+		var id string
+		var userId string
+		var globalName string
+		var angleIssue int
+		var tries int
+		var offBy int
+		var completed int
+
+		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed)
+		if err != nil {
+			log.Fatal(err)
+		}
+		entry := Entry{Tries: tries, Completed: completed, Issue: angleIssue}
+		entries = append(entries, entry)
+	}
+
+	wins := 0
+	played := len(entries)
+	maxStreak := 0
+	currentStreak := 0
+	currentStreakFound := false
+	streakCount := 0
+
+	firstEntry := entries[0]
+	if firstEntry.Completed == 1 {
+		wins += 1
+		maxStreak = 1
+		currentStreak = 1
+		streakCount = 1
+	} else {
+		currentStreakFound = true
+	}
+
+	lastIssue := firstEntry.Issue
+
+	for _, entry := range entries[1:] {
+		if entry.Completed == 1 {
+			wins += 1
+			if lastIssue-1 == entry.Issue {
+				streakCount += 1
+			} else {
+				if !currentStreakFound {
+					currentStreak = streakCount
+					currentStreakFound = true
+				}
+				streakCount = 1
+			}
+
+			maxStreak = max(maxStreak, streakCount)
+		} else {
+			streakCount = 0
+		}
+		lastIssue = entry.Issue
+	}
+
+	fmt.Println(currentStreakFound, currentStreak, streakCount)
+
+	if !currentStreakFound {
+		currentStreak = streakCount
+	}
+
+	winPercentage := 100.0 * float32(wins) / float32(played)
+
+	stats := ""
+
+	stats += fmt.Sprintf("%.1f Win%%\n", winPercentage)
+	stats += fmt.Sprintf("%d Played\n", played)
+	stats += fmt.Sprintf("%d Current Streak\n", currentStreak)
+	stats += fmt.Sprintf("%d Max Streak\n", maxStreak)
+
+	return stats
 }

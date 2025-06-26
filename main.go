@@ -98,8 +98,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	} else if m.Content == "!standings" {
 		standings := GetStandings()
-		_, err := s.ChannelMessageSend(m.ChannelID, standings)
-		fmt.Println("error sending message ", err)
+		s.ChannelMessageSend(m.ChannelID, standings)
+	} else if m.Content == "!stats" {
+		stats := GetStats(m.Author.ID)
+		s.ChannelMessageSend(m.ChannelID, stats)
 	} else if m.Content == "ping" {
 		_, err := s.ChannelMessageSend(m.ChannelID, "Pong!")
 		fmt.Println("error sending message ", err)
