@@ -60,7 +60,6 @@ func main() {
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the authenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-
 	// Ignore all messages created by the bot itself
 	// This isn't required in this specific example but it's a good practice.
 	if m.Author.ID == s.State.User.ID {
@@ -77,8 +76,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		numberOfTriesStr := firstLineValues[2][0]
 		completed := 1
 		if numberOfTriesStr == 'X' {
-			numberOfTriesStr = '4'
 			completed = 0
+			numberOfTriesStr = '4'
 		}
 
 		numberOfTries, _ := strconv.Atoi(string(numberOfTriesStr))
@@ -102,8 +101,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if m.Content == "!stats" {
 		stats := GetStats(m.Author.ID)
 		s.ChannelMessageSend(m.ChannelID, stats)
-	} else if m.Content == "ping" {
-		_, err := s.ChannelMessageSend(m.ChannelID, "Pong!")
-		fmt.Println("error sending message ", err)
+	} else if strings.HasPrefix(m.Content, "!transportador") {
+		user := m.Author
+		if len(m.Mentions) > 0 {
+			user = m.Mentions[0]
+		}
+		oneGuessEntries := CountOneGuessEntries(user.ID, user.GlobalName)
+		s.ChannelMessageSend(m.ChannelID, oneGuessEntries)
 	}
 }

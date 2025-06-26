@@ -257,8 +257,6 @@ func GetStats(userId string) string {
 		lastIssue = entry.Issue
 	}
 
-	fmt.Println(currentStreakFound, currentStreak, streakCount)
-
 	if !currentStreakFound {
 		currentStreak = streakCount
 	}
@@ -273,4 +271,21 @@ func GetStats(userId string) string {
 	stats += fmt.Sprintf("%d Max Streak\n", maxStreak)
 
 	return stats
+}
+
+func CountOneGuessEntries(userId string, userName string) string {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	stmt, err := db.Prepare("select count(*) from angle_tries where user_id = ? and tries == 1")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	var oneGuessEntries int
+	err = stmt.QueryRow(userId).Scan(&oneGuessEntries)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return fmt.Sprintf("%s ha usado el transportador :emoji_22:  %d veces\n", userName, oneGuessEntries)
 }
