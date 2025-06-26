@@ -287,5 +287,5 @@ func CountOneGuessEntries(userId string, userName string) string {
 		log.Fatal(err)
 	}
 
-	return fmt.Sprintf("%s ha usado el transportador :emoji_22:  %d veces\n", userName, oneGuessEntries)
+	return fmt.Sprintf("%s ha usado el transportador %d veces\n", userName, oneGuessEntries)
 }
