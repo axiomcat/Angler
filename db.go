@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strconv"
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
@@ -123,8 +124,10 @@ func GetStandings() string {
 	defer rows.Close()
 
 	type Score struct {
-		User  string
-		Score int
+		User   string
+		Score  int
+		Played int
+		Wins   int
 	}
 
 	scores := map[string]Score{}
@@ -147,9 +150,16 @@ func GetStandings() string {
 
 		if val, ok := scores[userId]; ok {
 			val.Score += entryScore
+			val.Played += 1
+			if completed == 1 {
+				val.Wins += 1
+			}
 			scores[userId] = val
 		} else {
-			newScore := Score{User: globalName, Score: entryScore}
+			newScore := Score{User: globalName, Score: entryScore, Played: 1, Wins: 0}
+			if completed == 1 {
+				newScore.Wins += 1
+			}
 			scores[userId] = newScore
 		}
 	}
@@ -172,8 +182,19 @@ func GetStandings() string {
 
 	scoreStr := ""
 
+	longestUsername := 0
+	longestScore := 0
+
+	for _, score := range scoreStandings {
+		nameLen := len(score.User)
+		longestUsername = max(nameLen, longestUsername)
+		scoreLen := len(strconv.Itoa(score.Score))
+		longestScore = max(longestScore, scoreLen)
+	}
+
 	for pos, score := range scoreStandings {
-		scoreStr += fmt.Sprintf("%d. %s %d\n", pos+1, score.User, score.Score)
+		percentageWin := 100.0 * float32(score.Wins) / float32(score.Played)
+		scoreStr += fmt.Sprintf("%2d. %*s %*d (%.0f%% win)\n", pos+1, longestUsername, score.User, longestScore, score.Score, percentageWin)
 	}
 
 	return scoreStr
@@ -287,5 +308,5 @@ func CountOneGuessEntries(userId string, userName string) string {
 		log.Fatal(err)
 	}
 
-	return fmt.Sprintf("%s ha usado el transportador %d veces\n", userName, oneGuessEntries)
+	return fmt.Sprintf("%s ha usado el transportador <:emoji_22:1383877615613509715> %d veces\n", userName, oneGuessEntries)
 }
