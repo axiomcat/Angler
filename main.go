@@ -47,19 +47,21 @@ func sendReminderMessage(channelId string) {
 	message := ""
 	if len(userIds) == len(userIdsMissingleTodayAngle) {
 		message = "No one has tried guessing today's angle yet!"
-	} else {
+	} else if len(userIdsMissingleTodayAngle) > 0 {
 		message = "Remember to do today's angle!"
 		for _, userId := range userIdsMissingleTodayAngle {
 			message += fmt.Sprintf(" <@%s>", userId)
 		}
 	}
 
+	log.Println("Sending reminder for Issue ", todayAngleIssue)
+
 	s.ChannelMessageSend(channelId, message)
 }
 
 func startCronJobs() {
 	c := cron.New()
-	c.AddFunc("0 8,12,16,20 * * *", func() { sendReminderMessage(*ChannelId) })
+	c.AddFunc("0 1,13,17,21 * * *", func() { sendReminderMessage(*ChannelId) })
 	c.Start()
 }
 
