@@ -127,6 +127,22 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		fmt.Printf("Inserted: %s,%s,%d,%d,%d,%v", m.Author.ID, m.Author.GlobalName, angleNumber, numberOfTries, angleOff, completed)
 
+		emojiId := ""
+
+		if completed == 0 {
+			emojiId = "😭"
+		} else if numberOfTries == 1 {
+			emojiId = "<:emoji_22:1383877615613509715>"
+		} else if numberOfTries == 2 {
+			emojiId = "🥳"
+		} else if numberOfTries == 3 {
+			emojiId = "👍"
+		} else if numberOfTries == 4 {
+			emojiId = "😢"
+		}
+
+		s.MessageReactionAdd(m.ChannelID, m.Message.ID, emojiId)
+
 	} else if m.Content == "!standings" {
 		standings := GetStandings()
 		s.ChannelMessageSend(m.ChannelID, standings)
