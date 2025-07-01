@@ -6,17 +6,18 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/robfig/cron/v3"
 )
 
 var (
-	GuildID        = flag.String("guild", "", "Test guild ID. If not passed - bot registers commands globally")
-	BotToken       = flag.String("token", "", "Bot access token")
-	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
+	BotToken  = flag.String("token", "", "Bot access token")
+	ChannelId = flag.String("channel", "", "Channel to send reminder")
 )
 
 var s *discordgo.Session
@@ -31,7 +32,40 @@ func init() {
 	}
 }
 
+func sendReminderMessage(channelId string) {
+	userIds := GetUsersIds()
+	// todayAngleIssue := GetTodayAngleIssue()
+	todayAngleIssue := 1100
+	usersTodayAngleDone := GetUserIdsAngleIssueDone(todayAngleIssue)
+	userIdsMissingleTodayAngle := []string{}
+	for _, userId := range userIds {
+		if !slices.Contains(usersTodayAngleDone, userId) {
+			userIdsMissingleTodayAngle = append(userIdsMissingleTodayAngle, userId)
+
+		}
+	}
+
+	message := ""
+	if len(userIds) == len(userIdsMissingleTodayAngle) {
+		message = "No one has tried guessing today's angle yet!"
+	} else {
+		message = "Remember to do today's angle!"
+		for _, userId := range userIdsMissingleTodayAngle {
+			message += fmt.Sprintf(" <@%s>", userId)
+		}
+	}
+
+	s.ChannelMessageSend(channelId, message)
+}
+
+func startCronJobs() {
+	c := cron.New()
+	c.AddFunc("0 8,12,16,20 * * *", func() { sendReminderMessage(*ChannelId) })
+	c.Start()
+}
+
 func main() {
+	startCronJobs()
 	CreateTable()
 
 	// Register the messageCreate func as a callback for MessageCreate events.
@@ -52,7 +86,6 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
-
 	// Cleanly close down the Discord session.
 	s.Close()
 }
@@ -65,6 +98,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
+	fmt.Println(m.ChannelID)
 
 	if strings.HasPrefix(m.Content, "#Angle") {
 		// #Angle #1100 X/4
