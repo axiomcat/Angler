@@ -34,8 +34,7 @@ func init() {
 
 func sendReminderMessage(channelId string) {
 	userIds := GetUsersIds()
-	// todayAngleIssue := GetTodayAngleIssue()
-	todayAngleIssue := 1100
+	todayAngleIssue := GetTodayAngleIssue()
 	usersTodayAngleDone := GetUserIdsAngleIssueDone(todayAngleIssue)
 	userIdsMissingleTodayAngle := []string{}
 	for _, userId := range userIds {
@@ -98,7 +97,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	fmt.Println(m.ChannelID)
 
 	if strings.HasPrefix(m.Content, "#Angle") {
 		// #Angle #1100 X/4
