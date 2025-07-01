@@ -98,8 +98,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if m.Content == "!standings" {
 		standings := GetStandings()
 		s.ChannelMessageSend(m.ChannelID, standings)
-	} else if m.Content == "!stats" {
-		stats := GetStats(m.Author.ID)
+	} else if strings.HasPrefix(m.Content, "!stats") {
+		user := m.Author
+		if len(m.Mentions) > 0 {
+			user = m.Mentions[0]
+		}
+		stats := GetStats(user.ID)
 		s.ChannelMessageSend(m.ChannelID, stats)
 	} else if strings.HasPrefix(m.Content, "!transportador") {
 		user := m.Author
