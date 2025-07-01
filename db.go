@@ -246,6 +246,10 @@ func GetStats(userId string) string {
 	currentStreakFound := false
 	streakCount := 0
 
+	if len(entries) == 0 {
+		return "No games played yet!"
+	}
+
 	firstEntry := entries[0]
 	if firstEntry.Completed == 1 {
 		wins += 1
@@ -259,6 +263,7 @@ func GetStats(userId string) string {
 	lastIssue := firstEntry.Issue
 
 	for _, entry := range entries[1:] {
+		fmt.Println(entry)
 		if entry.Completed == 1 {
 			wins += 1
 			if lastIssue-1 == entry.Issue {
@@ -273,6 +278,10 @@ func GetStats(userId string) string {
 
 			maxStreak = max(maxStreak, streakCount)
 		} else {
+			if !currentStreakFound {
+				currentStreak = streakCount
+				currentStreakFound = true
+			}
 			streakCount = 0
 		}
 		lastIssue = entry.Issue
