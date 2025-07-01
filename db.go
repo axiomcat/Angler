@@ -263,7 +263,6 @@ func GetStats(userId string) string {
 	lastIssue := firstEntry.Issue
 
 	for _, entry := range entries[1:] {
-		fmt.Println(entry)
 		if entry.Completed == 1 {
 			wins += 1
 			if lastIssue-1 == entry.Issue {
@@ -318,4 +317,58 @@ func CountOneGuessEntries(userId string, userName string) string {
 	}
 
 	return fmt.Sprintf("%s ha usado el transportador <:emoji_22:1383877615613509715> %d veces\n", userName, oneGuessEntries)
+}
+
+func GetUsersIds() []string {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	stmt, err := db.Prepare("select distinct user_id from angle_tries")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	usersIds := []string{}
+	for rows.Next() {
+		var userId string
+
+		err = rows.Scan(&userId)
+		if err != nil {
+			log.Fatal(err)
+		}
+		usersIds = append(usersIds, userId)
+	}
+	return usersIds
+}
+
+func GetUserIdsAngleIssueDone(angleIssue int) []string {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	stmt, err := db.Prepare("select user_id from angle_tries where angle_issue = ?")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(angleIssue)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	usersIds := []string{}
+	for rows.Next() {
+		var userId string
+
+		err = rows.Scan(&userId)
+		if err != nil {
+			log.Fatal(err)
+		}
+		usersIds = append(usersIds, userId)
+	}
+	return usersIds
 }
