@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"slices"
@@ -54,9 +55,10 @@ func sendReminderMessage(channelId string) {
 		}
 	}
 
-	log.Println("Sending reminder for Issue ", todayAngleIssue)
-
-	s.ChannelMessageSend(channelId, message)
+	if len(message) > 0 {
+		log.Println("Sending reminder for Issue ", todayAngleIssue)
+		s.ChannelMessageSend(channelId, message)
+	}
 }
 
 func startCronJobs() {
@@ -67,7 +69,7 @@ func startCronJobs() {
 
 func main() {
 	startCronJobs()
-	CreateTable()
+	CreateTables()
 
 	// Register the messageCreate func as a callback for MessageCreate events.
 	s.AddHandler(messageCreate)
@@ -124,8 +126,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			angleOff, _ = strconv.Atoi(angleOffStr[0])
 		}
 		angleEntry := AngleEntry{UserId: m.Author.ID, GlobalName: m.Author.GlobalName, AngleIssue: angleNumber, Tries: numberOfTries, OffBy: angleOff, Completed: completed}
-		InsertEntry(angleEntry)
-		ShowAllTable()
+		InsertAngleTryEntry(angleEntry)
 
 		fmt.Printf("Inserted: %s,%s,%d,%d,%d,%v", m.Author.ID, m.Author.GlobalName, angleNumber, numberOfTries, angleOff, completed)
 
@@ -133,6 +134,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		if completed == 0 {
 			emojiId = "😭"
+			failQuotes := ListFailQuotes(m.GuildID)
+			randomQuote := failQuotes[rand.Intn(len(failQuotes))].Quote
+			message := fmt.Sprintf("<@%s> %s", m.Author.ID, randomQuote)
+			s.ChannelMessageSend(m.ChannelID, message)
 		} else if numberOfTries == 1 {
 			emojiId = "<:emoji_22:1383877615613509715>"
 		} else if numberOfTries == 2 {
@@ -162,5 +167,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		oneGuessEntries := CountOneGuessEntries(user.ID, user.GlobalName)
 		s.ChannelMessageSend(m.ChannelID, oneGuessEntries)
+	} else if strings.HasPrefix(m.Content, "!failquotes") {
+		s.ChannelMessageSend(m.ChannelID, GetFailQuoteActionResultMessage(m.Content, m.GuildID))
 	}
 }
