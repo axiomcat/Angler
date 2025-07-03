@@ -54,9 +54,10 @@ func sendReminderMessage(channelId string) {
 		}
 	}
 
-	log.Println("Sending reminder for Issue ", todayAngleIssue)
-
-	s.ChannelMessageSend(channelId, message)
+	if len(message) > 0 {
+		log.Println("Sending reminder for Issue ", todayAngleIssue)
+		s.ChannelMessageSend(channelId, message)
+	}
 }
 
 func startCronJobs() {
@@ -67,7 +68,7 @@ func startCronJobs() {
 
 func main() {
 	startCronJobs()
-	CreateTable()
+	CreateTables()
 
 	// Register the messageCreate func as a callback for MessageCreate events.
 	s.AddHandler(messageCreate)
@@ -124,8 +125,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			angleOff, _ = strconv.Atoi(angleOffStr[0])
 		}
 		angleEntry := AngleEntry{UserId: m.Author.ID, GlobalName: m.Author.GlobalName, AngleIssue: angleNumber, Tries: numberOfTries, OffBy: angleOff, Completed: completed}
-		InsertEntry(angleEntry)
-		ShowAllTable()
+		InsertAngleTryEntry(angleEntry)
+		ShowAngleTriesTable()
 
 		fmt.Printf("Inserted: %s,%s,%d,%d,%d,%v", m.Author.ID, m.Author.GlobalName, angleNumber, numberOfTries, angleOff, completed)
 
@@ -162,5 +163,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		oneGuessEntries := CountOneGuessEntries(user.ID, user.GlobalName)
 		s.ChannelMessageSend(m.ChannelID, oneGuessEntries)
+	} else if strings.HasPrefix(m.Content, "!failquotes") {
+		s.ChannelMessageSend(m.ChannelID, GetFailQuoteActionResultMessage(m.Content, m.GuildID))
 	}
 }

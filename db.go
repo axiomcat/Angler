@@ -11,6 +11,10 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var tableStatements = map[string]string{
+	"angle_tries": "CREATE table angle_tries(id text not null primary key, user_id text, global_name text, angle_issue integer, tries integer, off_by integer, completed integer);",
+	"fail_quotes": "CREATE table fail_quotes(id text not null primary key, guild_id text, quote text);"}
+
 type AngleEntry struct {
 	UserId     string
 	GlobalName string
@@ -20,24 +24,49 @@ type AngleEntry struct {
 	Completed  int
 }
 
-func CreateTable() {
+type QuoteEntry struct {
+	Id      string
+	Quote   string
+	GuildId string
+}
+
+func checkTableExist(tableName string, db *sql.DB) bool {
+	stmt, err := db.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?;")
+	if err != nil {
+		log.Fatal("Error in statment", err)
+	}
+	defer stmt.Close()
+
+	tableExists := ""
+	err = stmt.QueryRow(tableName).Scan(&tableExists)
+	if err != nil {
+		log.Println("Error in query", err)
+		return false
+	}
+	return tableName == tableExists
+}
+
+func CreateTables() {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	sqlStmt := `
-	create table angle_tries(id text not null primary key, user_id text, global_name text, angle_issue integer, tries integer, off_by integer, completed integer);
-	`
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return
+	for tableName, tableStament := range tableStatements {
+		tableExist := checkTableExist(tableName, db)
+		if !tableExist {
+			fmt.Println("Creating table", tableName)
+			_, err = db.Exec(tableStament)
+			if err != nil {
+				log.Printf("%q: %s\n", err, tableStament)
+				return
+			}
+		}
 	}
 }
 
-func InsertEntry(angleEntry AngleEntry) {
+func InsertAngleTryEntry(angleEntry AngleEntry) {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	if err != nil {
 		log.Fatal(err)
@@ -69,7 +98,7 @@ func InsertEntry(angleEntry AngleEntry) {
 	}
 }
 
-func ShowAllTable() {
+func ShowAngleTriesTable() {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	rows, err := db.Query("select * from angle_tries")
 	if err != nil {
@@ -86,7 +115,6 @@ func ShowAllTable() {
 		var offBy int
 		var completed int
 
-		// userId globalName angleIssue tries offBy completed
 		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed)
 		if err != nil {
 			log.Fatal(err)
@@ -371,4 +399,84 @@ func GetUserIdsAngleIssueDone(angleIssue int) []string {
 		usersIds = append(usersIds, userId)
 	}
 	return usersIds
+}
+
+func InsertFailQuote(guildId string, failQuote string) {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stmt, err := tx.Prepare("insert into fail_quotes(id, guild_id, quote) values(?, ?, ?)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	newId := uuid.NewString()
+	_, err = stmt.Exec(newId, guildId, failQuote)
+	if err != nil {
+		log.Println("error in stmt exc")
+		log.Fatal(err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Println("error in stmt commit")
+		log.Fatal(err)
+	}
+
+	log.Printf("Inserted %s in guild %s", failQuote, guildId)
+}
+
+func RemoveFailQuote(failQuoteId string, guildId string) error {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	if err != nil {
+		return fmt.Errorf("Error opening database")
+	}
+	defer db.Close()
+
+	stmt := fmt.Sprintf("DELETE FROM fail_quotes WHERE id = '%s'", failQuoteId)
+	fmt.Println(stmt)
+	_, err = db.Exec(stmt)
+	if err != nil {
+		return fmt.Errorf("Error while removing fail quote %s", err)
+	}
+	return nil
+}
+
+func ListFailQuotes(guildId string) []QuoteEntry {
+	db, err := sql.Open("sqlite3", "./foo.db")
+	stmt, err := db.Prepare("SELECT id, quote FROM fail_quotes WHERE guild_id = ?")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(guildId)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	failQuotes := []QuoteEntry{}
+
+	for rows.Next() {
+		var id string
+		var quote string
+
+		err = rows.Scan(&id, &quote)
+		if err != nil {
+			log.Fatal(err)
+		}
+		quoteEntry := QuoteEntry{Id: id, Quote: quote}
+		failQuotes = append(failQuotes, quoteEntry)
+	}
+	return failQuotes
 }
