@@ -146,17 +146,26 @@ func calculateEntryScore(tries int, completed int) int {
 	}
 }
 
-func GetStandings() string {
+func GetStandings(season int, allSeasons bool) string {
 	db, err := sql.Open("sqlite3", "./foo.db")
-	stmt, err := db.Prepare("select * from angle_tries where season = ?")
+	var stmt *sql.Stmt
+	var rows *sql.Rows
 
-	if err != nil {
-		log.Fatal(err)
+	if allSeasons == true {
+		stmt, err = db.Prepare("select * from angle_tries")
+		if err != nil {
+			log.Fatal(err)
+		}
+		rows, err = stmt.Query()
+	} else {
+		stmt, err = db.Prepare("select * from angle_tries where season = ?")
+		if err != nil {
+			log.Fatal(err)
+		}
+		rows, err = stmt.Query(season)
 	}
-	defer stmt.Close()
 
-	currentSeason := GetCurrentSeason()
-	rows, err := stmt.Query(currentSeason)
+	defer stmt.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -220,7 +229,13 @@ func GetStandings() string {
 		return 1
 	})
 
-	scoreStr := fmt.Sprintf("Season %d\n", currentSeason)
+	var seasonText string
+	if allSeasons == true {
+		seasonText = "All seasons\n"
+	} else {
+		seasonText = fmt.Sprintf("Season %d\n", season)
+	}
+	scoreStr := seasonText
 
 	longestUsername := 0
 	longestScore := 0
@@ -259,6 +274,9 @@ func GetStats(userId string, season int, allSeasons bool) string {
 		rows, err = stmt.Query(userId, season)
 	}
 	defer stmt.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer rows.Close()
 
 	type Entry struct {

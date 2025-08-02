@@ -150,9 +150,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		s.MessageReactionAdd(m.ChannelID, m.Message.ID, emojiId)
 
-	} else if m.Content == "!standings" {
-		standings := GetStandings()
-		s.ChannelMessageSend(m.ChannelID, standings)
+	} else if strings.HasPrefix(m.Content, "!standings") {
+		s.ChannelMessageSend(m.ChannelID, GetStandingMessage(m.Content))
 	} else if strings.HasPrefix(m.Content, "!stats") {
 		user := m.Author
 		if len(m.Mentions) > 0 {

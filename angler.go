@@ -119,6 +119,34 @@ func GetFailQuoteActionResultMessage(message string, guildId string) string {
 	return ""
 }
 
+func GetStandingMessage(message string) string {
+	allSeasons := false
+	season := GetCurrentSeason()
+	command := strings.Split(message, " ")
+	var standingMessage string
+	var err error
+	if len(command) > 1 {
+		seasonStr := command[1]
+		if seasonStr == "all" {
+			allSeasons = true
+		} else {
+			season, err = strconv.Atoi(seasonStr)
+			if err != nil {
+				return fmt.Sprintf("%s is not a valid season!!", seasonStr)
+			}
+		}
+	}
+
+	if season < 1 {
+		return "Seasons starts at 1!!"
+	} else if season > GetCurrentSeason() {
+		return fmt.Sprintf("We are only on season %d", season)
+	}
+
+	standingMessage = GetStandings(season, allSeasons)
+	return standingMessage
+}
+
 func GetStatsMessage(message string, userId string) string {
 	allSeasons := false
 	season := GetCurrentSeason()
