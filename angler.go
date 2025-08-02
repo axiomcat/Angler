@@ -222,3 +222,20 @@ func GetEntryEmojiReaction(completed int, numberOfTries int, m *discordgo.Messag
 
 	return emojiId
 }
+
+func GetSeasonWinCount() string {
+	seasonWins := map[string]int{}
+	for season := 1; season < GetCurrentSeason(); season++ {
+		winner := GetSeasonWinner(season).User
+		if _, ok := seasonWins[winner]; ok {
+			seasonWins[winner] += 1
+		} else {
+			seasonWins[winner] = 1
+		}
+	}
+	message := "🍔🍔🍔🥂\n"
+	for k, v := range seasonWins {
+		message += fmt.Sprintf("%s: %d\n", k, v)
+	}
+	return message
+}

@@ -39,7 +39,6 @@ func sendReminderMessage(channelId string) {
 	for _, userId := range userIds {
 		if !slices.Contains(usersTodayAngleDone, userId) {
 			userIdsMissingleTodayAngle = append(userIdsMissingleTodayAngle, userId)
-
 		}
 	}
 
@@ -121,5 +120,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, oneGuessEntries)
 	} else if strings.HasPrefix(m.Content, "!failquotes") {
 		s.ChannelMessageSend(m.ChannelID, GetFailQuoteActionResultMessage(m.Content, m.GuildID))
+	} else if strings.HasPrefix(m.Content, "!corralazos") {
+		s.ChannelMessageSend(m.ChannelID, GetSeasonWinCount())
 	}
 }

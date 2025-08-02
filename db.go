@@ -30,6 +30,14 @@ type QuoteEntry struct {
 	GuildId string
 }
 
+type Score struct {
+	User   string
+	Score  int
+	Played int
+	Wins   int
+	Id     string
+}
+
 func checkTableExist(tableName string, db *sql.DB) bool {
 	stmt, err := db.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?;")
 	if err != nil {
@@ -146,7 +154,7 @@ func calculateEntryScore(tries int, completed int) int {
 	}
 }
 
-func GetStandings(season int, allSeasons bool) string {
+func getScores(season int, allSeasons bool) []Score {
 	db, err := sql.Open("sqlite3", "./foo.db")
 	var stmt *sql.Stmt
 	var rows *sql.Rows
@@ -170,13 +178,6 @@ func GetStandings(season int, allSeasons bool) string {
 		log.Fatal(err)
 	}
 	defer rows.Close()
-
-	type Score struct {
-		User   string
-		Score  int
-		Played int
-		Wins   int
-	}
 
 	scores := map[string]Score{}
 
@@ -205,7 +206,7 @@ func GetStandings(season int, allSeasons bool) string {
 			}
 			scores[userId] = val
 		} else {
-			newScore := Score{User: globalName, Score: entryScore, Played: 1, Wins: 0}
+			newScore := Score{Id: userId, User: globalName, Score: entryScore, Played: 1, Wins: 0}
 			if completed == 1 {
 				newScore.Wins += 1
 			}
@@ -228,6 +229,12 @@ func GetStandings(season int, allSeasons bool) string {
 		}
 		return 1
 	})
+
+	return scoreStandings
+}
+
+func GetStandings(season int, allSeasons bool) string {
+	scoreStandings := getScores(season, allSeasons)
 
 	var seasonText string
 	if allSeasons == true {
@@ -524,4 +531,9 @@ func ListFailQuotes(guildId string) []QuoteEntry {
 		failQuotes = append(failQuotes, quoteEntry)
 	}
 	return failQuotes
+}
+
+func GetSeasonWinner(season int) Score {
+	standingScores := getScores(season, false)
+	return standingScores[0]
 }
