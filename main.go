@@ -4,11 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"os/signal"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -103,53 +101,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if strings.HasPrefix(m.Content, "#Angle") {
-		// #Angle #1100 X/4
-		// ⬆️⬆️⬆️⬇️: 1° off
-		// https://www.angle.wtf/
-		lines := strings.Split(m.Content, "\n")
-		firstLineValues := strings.Split(lines[0], " ")
-		angleNumber, _ := strconv.Atoi(firstLineValues[1][1:])
-		numberOfTriesStr := firstLineValues[2][0]
-		completed := 1
-		if numberOfTriesStr == 'X' {
-			completed = 0
-			numberOfTriesStr = '4'
-		}
-
-		numberOfTries, _ := strconv.Atoi(string(numberOfTriesStr))
-
-		secondLineValues := strings.Split(lines[1], " ")
-		angleOff := 0
-		// Did not complete
-		if len(secondLineValues) > 1 {
-			angleOffStr := strings.Split(secondLineValues[1], "°")
-			angleOff, _ = strconv.Atoi(angleOffStr[0])
-		}
-		angleEntry := AngleEntry{UserId: m.Author.ID, GlobalName: m.Author.GlobalName, AngleIssue: angleNumber, Tries: numberOfTries, OffBy: angleOff, Completed: completed}
+		angleEntry := ParseAngleEntry(m.Content, m.Author.ID, m.Author.GlobalName)
 		InsertAngleTryEntry(angleEntry)
-
-		fmt.Printf("Inserted: %s,%s,%d,%d,%d,%v", m.Author.ID, m.Author.GlobalName, angleNumber, numberOfTries, angleOff, completed)
-
-		emojiId := ""
-
-		if completed == 0 {
-			emojiId = "😭"
-			failQuotes := ListFailQuotes(m.GuildID)
-			randomQuote := failQuotes[rand.Intn(len(failQuotes))].Quote
-			message := fmt.Sprintf("<@%s> %s", m.Author.ID, randomQuote)
-			s.ChannelMessageSend(m.ChannelID, message)
-		} else if numberOfTries == 1 {
-			emojiId = "<:emoji_22:1383877615613509715>"
-		} else if numberOfTries == 2 {
-			emojiId = "🥳"
-		} else if numberOfTries == 3 {
-			emojiId = "👍"
-		} else if numberOfTries == 4 {
-			emojiId = "😢"
-		}
-
-		s.MessageReactionAdd(m.ChannelID, m.Message.ID, emojiId)
-
+		s.MessageReactionAdd(m.ChannelID, m.Message.ID, GetEntryEmojiReaction(angleEntry.Completed, angleEntry.Tries, m))
 	} else if strings.HasPrefix(m.Content, "!standings") {
 		s.ChannelMessageSend(m.ChannelID, GetStandingMessage(m.Content))
 	} else if strings.HasPrefix(m.Content, "!stats") {
