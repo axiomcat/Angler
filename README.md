@@ -23,6 +23,10 @@ Count the number of times an user guessed in one try.
 
 Show current standings based on scoring.
 
-# Upcoming features
+## `!failquotes`
 
-- [] Show a random mean quote when someone fails to do the challenge.
+You can add or remove quotes that are sent when someone fails to guess the angle.
+
+## Seasons
+
+All scores are reset every month, and the winner for that month gets a corralazo.
