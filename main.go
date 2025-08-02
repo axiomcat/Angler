@@ -158,8 +158,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if len(m.Mentions) > 0 {
 			user = m.Mentions[0]
 		}
-		stats := GetStats(user.ID)
-		s.ChannelMessageSend(m.ChannelID, stats)
+		s.ChannelMessageSend(m.ChannelID, GetStatsMessage(m.Content, user.ID))
 	} else if strings.HasPrefix(m.Content, "!transportador") {
 		user := m.Author
 		if len(m.Mentions) > 0 {

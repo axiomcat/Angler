@@ -20,6 +20,36 @@ func GetTodayAngleIssue() int {
 	return currentAngleIssue
 }
 
+func GetCurrentSeason() int {
+	a := time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC)
+	b := time.Now().UTC()
+
+	if a.After(b) {
+		return 0
+	}
+
+	y1, M1, d1 := a.Date()
+	y2, M2, d2 := b.Date()
+
+	year := int(y2 - y1)
+	month := int(M2 - M1)
+	day := int(d2 - d1)
+	if day < 0 {
+		// days in month:
+		t := time.Date(y1, M1, 32, 0, 0, 0, 0, time.UTC)
+		day += 32 - t.Day()
+		month--
+	}
+
+	if month < 0 {
+		month += 12
+		year--
+	}
+
+	season := year*12 + month + 1
+	return season
+}
+
 func GetFailQuotesListMessage(guildId string) string {
 	failQuotes := ListFailQuotes(guildId)
 	message := ""
@@ -87,4 +117,32 @@ func GetFailQuoteActionResultMessage(message string, guildId string) string {
 	}
 
 	return ""
+}
+
+func GetStatsMessage(message string, userId string) string {
+	allSeasons := false
+	season := GetCurrentSeason()
+	command := strings.Split(message, " ")
+	var statsMessage string
+	var err error
+	if len(command) > 1 {
+		seasonStr := command[1]
+		if seasonStr == "all" {
+			allSeasons = true
+		} else {
+			season, err = strconv.Atoi(seasonStr)
+			if err != nil {
+				return fmt.Sprintf("%s is not a valid season!!", seasonStr)
+			}
+		}
+	}
+
+	if season < 1 {
+		return "Seasons starts at 1!!"
+	} else if season > GetCurrentSeason() {
+		return fmt.Sprintf("We are only on season %d", season)
+	}
+
+	statsMessage = GetStats(userId, season, allSeasons)
+	return statsMessage
 }
