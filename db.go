@@ -30,6 +30,14 @@ type QuoteEntry struct {
 	GuildId string
 }
 
+type Score struct {
+	User   string
+	Score  int
+	Played int
+	Wins   int
+	Id     string
+}
+
 func checkTableExist(tableName string, db *sql.DB) bool {
 	stmt, err := db.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?;")
 	if err != nil {
@@ -78,14 +86,16 @@ func InsertAngleTryEntry(angleEntry AngleEntry) {
 		log.Fatal(err)
 	}
 
-	stmt, err := tx.Prepare("insert into angle_tries(id, user_id, global_name, angle_issue, tries, off_by, completed) values(?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("insert into angle_tries(id, user_id, global_name, angle_issue, tries, off_by, completed, season) values(?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer stmt.Close()
 
+	currentSeason := GetCurrentSeason()
+
 	newId := uuid.NewString()
-	_, err = stmt.Exec(newId, angleEntry.UserId, angleEntry.GlobalName, angleEntry.AngleIssue, angleEntry.Tries, angleEntry.OffBy, angleEntry.Completed)
+	_, err = stmt.Exec(newId, angleEntry.UserId, angleEntry.GlobalName, angleEntry.AngleIssue, angleEntry.Tries, angleEntry.OffBy, angleEntry.Completed, currentSeason)
 	if err != nil {
 		log.Println("error in stmt exc")
 		log.Fatal(err)
@@ -114,12 +124,13 @@ func ShowAngleTriesTable() {
 		var tries int
 		var offBy int
 		var completed int
+		var season int
 
-		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed)
+		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed, &season)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(id, userId, globalName, angleIssue, tries, offBy, completed)
+		fmt.Println(id, userId, globalName, angleIssue, tries, offBy, completed, season)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -143,20 +154,30 @@ func calculateEntryScore(tries int, completed int) int {
 	}
 }
 
-func GetStandings() string {
+func getScores(season int, allSeasons bool) []Score {
 	db, err := sql.Open("sqlite3", "./foo.db")
-	rows, err := db.Query("select * from angle_tries")
+	var stmt *sql.Stmt
+	var rows *sql.Rows
+
+	if allSeasons == true {
+		stmt, err = db.Prepare("select * from angle_tries")
+		if err != nil {
+			log.Fatal(err)
+		}
+		rows, err = stmt.Query()
+	} else {
+		stmt, err = db.Prepare("select * from angle_tries where season = ?")
+		if err != nil {
+			log.Fatal(err)
+		}
+		rows, err = stmt.Query(season)
+	}
+
+	defer stmt.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
-
-	type Score struct {
-		User   string
-		Score  int
-		Played int
-		Wins   int
-	}
 
 	scores := map[string]Score{}
 
@@ -168,8 +189,9 @@ func GetStandings() string {
 		var tries int
 		var offBy int
 		var completed int
+		var season int
 
-		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed)
+		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed, &season)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -184,7 +206,7 @@ func GetStandings() string {
 			}
 			scores[userId] = val
 		} else {
-			newScore := Score{User: globalName, Score: entryScore, Played: 1, Wins: 0}
+			newScore := Score{Id: userId, User: globalName, Score: entryScore, Played: 1, Wins: 0}
 			if completed == 1 {
 				newScore.Wins += 1
 			}
@@ -208,7 +230,19 @@ func GetStandings() string {
 		return 1
 	})
 
-	scoreStr := ""
+	return scoreStandings
+}
+
+func GetStandings(season int, allSeasons bool) string {
+	scoreStandings := getScores(season, allSeasons)
+
+	var seasonText string
+	if allSeasons == true {
+		seasonText = "All seasons\n"
+	} else {
+		seasonText = fmt.Sprintf("Season %d\n", season)
+	}
+	scoreStr := seasonText
 
 	longestUsername := 0
 	longestScore := 0
@@ -228,15 +262,25 @@ func GetStandings() string {
 	return scoreStr
 }
 
-func GetStats(userId string) string {
+func GetStats(userId string, season int, allSeasons bool) string {
 	db, err := sql.Open("sqlite3", "./foo.db")
-	stmt, err := db.Prepare("select * from angle_tries where user_id = ? order by angle_issue desc")
-	if err != nil {
-		log.Fatal(err)
+	var stmt *sql.Stmt
+	var rows *sql.Rows
+
+	if allSeasons == true {
+		stmt, err = db.Prepare("select * from angle_tries where user_id = ? order by angle_issue desc")
+		if err != nil {
+			log.Fatal(err)
+		}
+		rows, err = stmt.Query(userId)
+	} else {
+		stmt, err = db.Prepare("select * from angle_tries where user_id = ? and season = ? order by angle_issue desc")
+		if err != nil {
+			log.Fatal(err)
+		}
+		rows, err = stmt.Query(userId, season)
 	}
 	defer stmt.Close()
-
-	rows, err := stmt.Query(userId)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -258,8 +302,9 @@ func GetStats(userId string) string {
 		var tries int
 		var offBy int
 		var completed int
+		var season int
 
-		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed)
+		err = rows.Scan(&id, &userId, &globalName, &angleIssue, &tries, &offBy, &completed, &season)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -320,7 +365,14 @@ func GetStats(userId string) string {
 
 	winPercentage := 100.0 * float32(wins) / float32(played)
 
-	stats := ""
+	var seasonText string
+	if allSeasons == true {
+		seasonText = "All seasons\n"
+	} else {
+		seasonText = fmt.Sprintf("Season %d\n", season)
+	}
+
+	stats := seasonText
 
 	stats += fmt.Sprintf("%.1f Win%%\n", winPercentage)
 	stats += fmt.Sprintf("%d Played\n", played)
@@ -479,4 +531,9 @@ func ListFailQuotes(guildId string) []QuoteEntry {
 		failQuotes = append(failQuotes, quoteEntry)
 	}
 	return failQuotes
+}
+
+func GetSeasonWinner(season int) Score {
+	standingScores := getScores(season, false)
+	return standingScores[0]
 }

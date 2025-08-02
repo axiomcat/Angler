@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 const SecondsToDays int64 = 60 * 60 * 24
@@ -18,6 +21,36 @@ func GetTodayAngleIssue() int {
 	timeDiff := (currentUnixTime - int64(referenceUnixTime)) / SecondsToDays
 	currentAngleIssue := referenceIssue + int(timeDiff)
 	return currentAngleIssue
+}
+
+func GetCurrentSeason() int {
+	a := time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC)
+	b := time.Now().UTC()
+
+	if a.After(b) {
+		return 0
+	}
+
+	y1, M1, d1 := a.Date()
+	y2, M2, d2 := b.Date()
+
+	year := int(y2 - y1)
+	month := int(M2 - M1)
+	day := int(d2 - d1)
+	if day < 0 {
+		// days in month:
+		t := time.Date(y1, M1, 32, 0, 0, 0, 0, time.UTC)
+		day += 32 - t.Day()
+		month--
+	}
+
+	if month < 0 {
+		month += 12
+		year--
+	}
+
+	season := year*12 + month + 1
+	return season
 }
 
 func GetFailQuotesListMessage(guildId string) string {
@@ -87,4 +120,122 @@ func GetFailQuoteActionResultMessage(message string, guildId string) string {
 	}
 
 	return ""
+}
+
+func GetStandingMessage(message string) string {
+	allSeasons := false
+	season := GetCurrentSeason()
+	command := strings.Split(message, " ")
+	var standingMessage string
+	var err error
+	if len(command) > 1 {
+		seasonStr := command[1]
+		if seasonStr == "all" {
+			allSeasons = true
+		} else {
+			season, err = strconv.Atoi(seasonStr)
+			if err != nil {
+				return fmt.Sprintf("%s is not a valid season!!", seasonStr)
+			}
+		}
+	}
+
+	if season < 1 {
+		return "Seasons starts at 1!!"
+	} else if season > GetCurrentSeason() {
+		return fmt.Sprintf("We are only on season %d", season)
+	}
+
+	standingMessage = GetStandings(season, allSeasons)
+	return standingMessage
+}
+
+func GetStatsMessage(message string, userId string) string {
+	allSeasons := false
+	season := GetCurrentSeason()
+	command := strings.Split(message, " ")
+	var statsMessage string
+	var err error
+	if len(command) > 1 {
+		seasonStr := command[1]
+		if seasonStr == "all" {
+			allSeasons = true
+		} else {
+			season, err = strconv.Atoi(seasonStr)
+			if err != nil {
+				return fmt.Sprintf("%s is not a valid season!!", seasonStr)
+			}
+		}
+	}
+
+	if season < 1 {
+		return "Seasons starts at 1!!"
+	} else if season > GetCurrentSeason() {
+		return fmt.Sprintf("We are only on season %d", season)
+	}
+
+	statsMessage = GetStats(userId, season, allSeasons)
+	return statsMessage
+}
+
+func ParseAngleEntry(message string, authorId string, authorName string) AngleEntry {
+	lines := strings.Split(message, "\n")
+	firstLineValues := strings.Split(lines[0], " ")
+	angleNumber, _ := strconv.Atoi(firstLineValues[1][1:])
+	numberOfTriesStr := firstLineValues[2][0]
+	completed := 1
+	if numberOfTriesStr == 'X' {
+		completed = 0
+		numberOfTriesStr = '4'
+	}
+
+	numberOfTries, _ := strconv.Atoi(string(numberOfTriesStr))
+
+	secondLineValues := strings.Split(lines[1], " ")
+	angleOff := 0
+	// Did not complete
+	if len(secondLineValues) > 1 {
+		angleOffStr := strings.Split(secondLineValues[1], "°")
+		angleOff, _ = strconv.Atoi(angleOffStr[0])
+	}
+	angleEntry := AngleEntry{UserId: authorId, GlobalName: authorName, AngleIssue: angleNumber, Tries: numberOfTries, OffBy: angleOff, Completed: completed}
+	return angleEntry
+}
+
+func GetEntryEmojiReaction(completed int, numberOfTries int, m *discordgo.MessageCreate) string {
+	emojiId := ""
+	if completed == 0 {
+		emojiId = "😭"
+		failQuotes := ListFailQuotes(m.GuildID)
+		randomQuote := failQuotes[rand.Intn(len(failQuotes))].Quote
+		message := fmt.Sprintf("<@%s> %s", m.Author.ID, randomQuote)
+		s.ChannelMessageSend(m.ChannelID, message)
+	} else if numberOfTries == 1 {
+		emojiId = "<:emoji_22:1383877615613509715>"
+	} else if numberOfTries == 2 {
+		emojiId = "🥳"
+	} else if numberOfTries == 3 {
+		emojiId = "👍"
+	} else if numberOfTries == 4 {
+		emojiId = "😢"
+	}
+
+	return emojiId
+}
+
+func GetSeasonWinCount() string {
+	seasonWins := map[string]int{}
+	for season := 1; season < GetCurrentSeason(); season++ {
+		winner := GetSeasonWinner(season).User
+		if _, ok := seasonWins[winner]; ok {
+			seasonWins[winner] += 1
+		} else {
+			seasonWins[winner] = 1
+		}
+	}
+	message := "🍔🍔🍔🥂\n"
+	for k, v := range seasonWins {
+		message += fmt.Sprintf("%s: %d\n", k, v)
+	}
+	return message
 }
